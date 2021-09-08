@@ -1,0 +1,41 @@
+# Linear settings
+linear:
+    # Linear webhook secret. This should be added to the webhook URL as the `secret` query parameter.
+    # If left as the default, a random secret will be generated automatically.
+    webhook_secret: "put a random password here"
+    # A personal access token for the Linear bot for non-user-specific actions.
+    token: "create a personal access token here"
+    # OAuth client ID and secret to let users log into the bot with their Linear account.
+    client_id: "linear OAuth client ID"
+    client_secret: "linear OAuth client secret"
+    # IDs of Linear organizations that are allowed to use the bot.
+    # Empty list disables the whitelist.
+    allowed_organizations: []
+
+# Settings for reading data from GitLab for migration purposes
+gitlab:
+    # GitLab instance base URL.
+    url: https://gitlab.com
+    # GitLab bot personal access token.
+    token: "create a personal access token with read api access here"
+    # GitLab webhook secret. If left as the default, a random secret will be generated automatically.
+    webhook_secret: "put a random password here"
+
+# Whether the bot should handle non-prefixed commands in 1:1 rooms?
+# (e.g. "ping" instead of "!linear ping")
+prefixless_dm: true
+
+# Mapping from GitLab repo to Linear team
+team_mapping: {}
+
+# Mapping from GitLab username to Linear user ID
+user_mapping: {}
+
+# Mappings from GitLab label to Linear team/state/label IDs
+#
+# label_mapping has GitLab label names as the keys, and an object with `team`, `state` and/or `label` keys as the
+# value. Those keys should contain the Linear team, state or label IDs.
+#
+# team_label_mapping is a mapping from Linear team IDs to a mapping from GitLab label names to Linear label IDs
+label_mapping: {}
+team_label_mapping: {}

@@ -1,0 +1,12 @@
+{
+  "name": "Linear Schema",
+  "schemaPath": "schema.graphql",
+  "extensions": {
+    "endpoints": {
+      "Linear GraphQL Endpoint": {
+        "url": "https://api.linear.app/graphql",
+        "introspect": true
+      }
+    }
+  }
+}

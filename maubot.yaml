@@ -1,0 +1,15 @@
+maubot: 0.1.2
+id: com.beeper.linear-bot
+version: 0.1.0
+license: AGPL-3.0-or-later
+modules:
+- linearbot
+main_class: LinearBot
+
+extra_files:
+- base-config.yaml
+- templates/macros.html
+- templates/messages/*.html
+
+webapp: true
+database: true

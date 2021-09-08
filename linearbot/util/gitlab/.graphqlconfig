@@ -1,0 +1,12 @@
+{
+  "name": "GitLab Schema",
+  "schemaPath": "schema.graphql",
+  "extensions": {
+    "endpoints": {
+      "GitLab.com GraphQL Endpoint": {
+        "url": "https://gitlab.com/api/graphql",
+        "introspect": true
+      }
+    }
+  }
+}
