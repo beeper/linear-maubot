@@ -1,11 +1,14 @@
-from typing import NewType, List, Optional, Union
+from typing import NewType, List, Optional, Union, Dict, Any, TYPE_CHECKING
 from datetime import datetime, date
 from uuid import UUID
 
 from attr import dataclass
 
-from mautrix.types import SerializableAttrs, SerializableEnum, JSON, Obj, serializer, deserializer, \
-    field
+from mautrix.types import (SerializableAttrs, SerializableEnum, JSON, Obj,
+                           serializer, deserializer, field)
+
+if TYPE_CHECKING:
+    from .client import LinearClient
 
 LinearDateTime = NewType("LinearDateTime", datetime)
 LinearDate = NewType("LinearDate", date)
@@ -36,6 +39,7 @@ class EventAction(SerializableEnum):
     CREATE = "create"
     UPDATE = "update"
     REMOVE = "remove"
+    RESTORE = "restore"
 
 
 class LinearEventType(SerializableEnum):
@@ -64,17 +68,20 @@ class MinimalUser(SerializableAttrs):
     id: UUID
     name: str
 
+
 @dataclass
 class Organization(SerializableAttrs):
     id: UUID
     name: str
     url_key: str = field(json="urlKey")
 
+
 @dataclass(kw_only=True)
 class User(MinimalUser, SerializableAttrs):
     display_name: str = field(json="displayName")
     email: str
-    organization: Organization
+    url: str
+    organization: Optional[Organization] = None
 
 
 @dataclass(kw_only=True)
@@ -115,8 +122,13 @@ class MinimalLabel(SerializableAttrs):
     color: str
 
 
+class LinearEventData:
+    async def get_meta(self, client: 'LinearClient') -> Dict[str, Any]:
+        return {}
+
+
 @dataclass
-class Label(MinimalLabel, SerializableAttrs):
+class Label(MinimalLabel, SerializableAttrs, LinearEventData):
     created_at: LinearDateTime = field(json="createdAt")
     updated_at: LinearDateTime = field(json="updatedAt")
     team_id: UUID = field(json="teamId")
@@ -131,10 +143,16 @@ class Cycle(SerializableAttrs):
     ends_at: LinearDateTime = field(json="endsAt")
 
 
+@dataclass
+class IssueMeta(MinimalIssue):
+    identifier: str
+    url: str
+
+
 @dataclass(kw_only=True)
-class Issue(MinimalIssue, SerializableAttrs):
+class Issue(MinimalIssue, SerializableAttrs, LinearEventData):
     number: int
-    description: str
+    description: Optional[str] = None
     creator_id: UUID = field(json="creatorId")
     created_at: LinearDateTime = field(json="createdAt")
     updated_at: LinearDateTime = field(json="updatedAt")
@@ -146,6 +164,7 @@ class Issue(MinimalIssue, SerializableAttrs):
     sub_issue_sort_order: Optional[float] = field(json="subIssueSortOrder", default=None)
     completed_at: Optional[LinearDateTime] = field(json="completedAt", default=None)
     canceled_at: Optional[LinearDateTime] = field(json="canceledAt", default=None)
+    archived_at: Optional[LinearDateTime] = field(json="archivedAt", default=None)
     due_date: Optional[LinearDate] = field(json="dueDate", default=None)
     estimate: Optional[int] = None
     priority: Optional[int] = None
@@ -160,10 +179,16 @@ class Issue(MinimalIssue, SerializableAttrs):
     sort_order: float = field(json="sortOrder", default=0)
     board_order: int = field(json="boardOrder", default=0)
     previous_identifiers: List[str] = field(json="previousIdentifiers", factory=lambda: [])
+    trashed: bool = False
+
+    async def get_meta(self, client: 'LinearClient') -> Dict[str, Any]:
+        return {
+            "id": str(self.id),
+        }
 
 
 @dataclass(kw_only=True)
-class Comment(MinimalComment, SerializableAttrs):
+class Comment(MinimalComment, SerializableAttrs, LinearEventData):
     issue: MinimalIssue
     issue_id: UUID = field(json="issueId")
     created_at: LinearDateTime = field(json="createdAt")
@@ -171,9 +196,15 @@ class Comment(MinimalComment, SerializableAttrs):
     edited_at: Optional[LinearDateTime] = field(json="editedAt", default=None)
     user: MinimalUser
 
+    async def get_meta(self, client: 'LinearClient') -> Dict[str, Any]:
+        return {
+            "issue_id": str(self.issue_id),
+            "id": str(self.id),
+        }
+
 
 @dataclass(kw_only=True)
-class Reaction(SerializableAttrs):
+class Reaction(SerializableAttrs, LinearEventData):
     id: UUID
     emoji: str
     comment: MinimalComment
@@ -195,7 +226,7 @@ class AttachmentSource(SerializableAttrs):
 
 
 @dataclass(kw_only=True)
-class Attachment(SerializableAttrs):
+class Attachment(SerializableAttrs, LinearEventData):
     id: UUID
     title: str
     url: str

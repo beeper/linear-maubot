@@ -1,0 +1,8 @@
+{% set creator = cli.get_user(data.creator_id) %}
+<a href="{{ creator.url }}">{{ creator.display_name }}</a> created
+issue <a href="{{ url }}">{{ data.team.key }}-{{ data.number }}</a>: {{ data.title }}
+{% if data.description %}
+    <blockquote>
+        {{ data.description | markdown }}
+    </blockquote>
+{% endif %}

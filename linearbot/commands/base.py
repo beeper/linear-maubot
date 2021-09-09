@@ -4,9 +4,10 @@ import functools
 from maubot.handlers import command
 from maubot import MessageEvent
 
+from ..api import LinearClient
+
 if TYPE_CHECKING:
     from ..bot import LinearBot
-    from ..api import LinearClient
 
 
 class Command:
@@ -21,16 +22,22 @@ class Command:
         pass
 
 
-_CmdHandler = Callable[[Command, MessageEvent, 'LinearClient', ..., 'LinearBot'], Awaitable[None]]
+_CmdHandler = Callable[[Command, MessageEvent, LinearClient, ...], Awaitable[None]]
+_BaseCmdHandler = Callable[[Command, MessageEvent, ...], Awaitable[None]]
+_Decorator = Callable[[_CmdHandler], _BaseCmdHandler]
 
 
-def with_client(fn: _CmdHandler) -> _CmdHandler:
-    @functools.wraps(fn)
-    async def wrapper(self: Command, evt: MessageEvent, *args, **kwargs) -> None:
-        client = self.bot.clients.get_by_mxid(evt.sender)
-        if not client:
-            await evt.reply("You must log in to use that command.")
-            return
-        return await fn(self, evt, client, *args, **kwargs)
+def with_client(error_message: bool = True) -> _Decorator:
+    def decorator(fn: _CmdHandler) -> _BaseCmdHandler:
+        @functools.wraps(fn)
+        async def wrapper(self: Command, evt: MessageEvent, *args, **kwargs) -> None:
+            client = self.bot.clients.get_by_mxid(evt.sender)
+            if not client:
+                if error_message:
+                    await evt.reply("You must log in to use that command.")
+                return
+            return await fn(self, evt, client, *args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    return decorator

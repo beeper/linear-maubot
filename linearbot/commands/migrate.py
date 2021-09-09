@@ -9,7 +9,7 @@ from ..util.gitlab import MigrationError, MigrationURLParseError
 class CommandMigrate(Command):
     @Command.linear.subcommand(help="Migrate a GitLab issue to Linear", aliases=["m"])
     @command.argument("input_url", label="issue URLs...", pass_raw=True)
-    @with_client
+    @with_client()
     async def migrate(self, evt: MessageEvent, client: LinearClient, input_url: str) -> None:
         urls = [url.strip() for url in input_url.split(" ") if url.strip()]
         if not urls:

@@ -1,4 +1,4 @@
-from typing import Set, List, TYPE_CHECKING
+from typing import Set, List, Dict, TYPE_CHECKING
 from uuid import UUID
 import asyncio
 import json
@@ -12,7 +12,7 @@ from mautrix.types import (RoomID, EventType, StateEvent, Membership, Serializer
 from mautrix.util.formatter import parse_html
 from maubot.handlers import web, event
 
-from .api.types import LinearEvent, LINEAR_ENUMS
+from .api.types import LinearEvent, MinimalUser, LINEAR_ENUMS
 from .util.template import TemplateManager, TemplateNotFound, TemplateUtil
 
 if TYPE_CHECKING:
@@ -76,10 +76,11 @@ class LinearWebhook:
             **LINEAR_ENUMS,
             "abort": abort,
             "util": TemplateUtil,
+            "cli": self.bot.linear_bot,
         }
         # args["templates"] = self.templates.proxy(args)
 
-        html = tpl.render(**args)
+        html = await tpl.render_async(**args)
         if not html or aborted:
             return
         html = spaces.sub(space, html.strip())
@@ -88,12 +89,13 @@ class LinearWebhook:
         content["com.beeper.linear.webhook"] = {
             "type": evt.type.value,
             "action": evt.action.value,
+            "data": await evt.data.get_meta(client=self.bot.linear_bot),
         }
         if evt.url:
             content.external_url = evt.url
         query = {"ts": int(evt.created_at.timestamp() * 1000)}
 
-        await self.bot.client.send_message(room_id, content, query_parameters=query)
+        await self.bot.client.send_message(room_id, content, query_params=query)
 
     async def _try_handle_webhook(self, delivery_id: UUID, room_id: RoomID, evt: LinearEvent
                                   ) -> None:

@@ -4,8 +4,9 @@ import json
 
 from yarl import URL
 
-from .types import User, IssueCreateResponse
-from .queries import get_user_details, create_issue, create_comment
+from .types import User, IssueMeta, IssueCreateResponse
+from .queries import (get_user_details, get_user, get_issue, create_issue, create_comment,
+                      create_reaction)
 
 if TYPE_CHECKING:
     from ..bot import LinearBot
@@ -50,12 +51,18 @@ class LinearClient:
     oauth_token_url = URL("https://api.linear.app/oauth/token")
     oauth_revoke_url = URL("https://api.linear.app/oauth/revoke")
 
+    _user_cache: Dict[UUID, User]
+    _issue_cache: Dict[UUID, IssueMeta]
+
     def __init__(self, bot: 'LinearBot', own_id: Optional[UUID] = None,
                  authorization: Optional[str] = None) -> None:
         self.authorization = authorization
         self.own_id = own_id
         self.bot = bot
         self._cached_self = None
+
+        self._user_cache = {}
+        self._issue_cache = {}
 
     async def login(self, oauth_code: str, redirect_uri: str) -> None:
         resp = await self.bot.http.post(self.oauth_token_url, data={
@@ -115,6 +122,24 @@ class LinearClient:
         self.own_id = user.id
         return user
 
+    async def get_user(self, user_id: UUID) -> User:
+        try:
+            return self._user_cache[user_id]
+        except KeyError:
+            resp = await self.request(get_user, variables={"userID": str(user_id)})
+            user = User.deserialize(resp["user"])
+            self._user_cache[user.id] = user
+            return user
+
+    async def get_issue(self, issue_id: UUID) -> IssueMeta:
+        try:
+            return self._issue_cache[issue_id]
+        except KeyError:
+            resp = await self.request(get_issue, variables={"issueID": str(issue_id)})
+            issue = IssueMeta.deserialize(resp["issue"])
+            self._issue_cache[issue.id] = issue
+            return issue
+
     async def create_issue(self, team_id: UUID, title: str, description: str,
                            estimate: Optional[int] = None, labels: Optional[List[UUID]] = None,
                            state_id: Optional[UUID] = None, assignee_id: Optional[UUID] = None,
@@ -148,3 +173,14 @@ class LinearClient:
         if not resp["commentCreate"]["success"]:
             raise SuccessFalseError("Failed to create comment")
         return UUID(resp["commentCreate"]["comment"]["id"])
+
+    async def create_reaction(self, comment_id: UUID, emoji: str,
+                              reaction_id: Optional[UUID] = None) -> UUID:
+        resp = await self.request(create_reaction, {
+            "commentID": str(comment_id),
+            "emoji": emoji,
+            "reactionID": str(reaction_id) if reaction_id else None,
+        })
+        if not resp["reactionCreate"]["success"]:
+            raise SuccessFalseError("Failed to create reaction")
+        return UUID(resp["reactionCreate"]["reaction"]["id"])

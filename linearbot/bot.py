@@ -59,6 +59,8 @@ class LinearBot(Plugin):
         self.linear_bot = LinearClient(self)
         self.linear_webhook = await LinearWebhook(self).start()
         self.commands = LinearCommands(self)
+        assert self.commands._event_meta_cache is not None
+        assert self.commands._logins_in_progress is not None
         self.clients = ClientManager(self, db_metadata)
         self.migrator = GitLabMigrator(self)
         self.prefixless_dm = DMCommandHandler(self.commands)
