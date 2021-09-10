@@ -178,6 +178,7 @@ class Issue(MinimalIssue, SerializableAttrs, LinearEventData):
     completed_at: Optional[LinearDateTime] = field(json="completedAt", default=None)
     canceled_at: Optional[LinearDateTime] = field(json="canceledAt", default=None)
     archived_at: Optional[LinearDateTime] = field(json="archivedAt", default=None)
+    started_at: Optional[LinearDateTime] = field(json="startedAt", default=None)
     due_date: Optional[LinearDate] = field(json="dueDate", default=None)
     estimate: Optional[int] = None
     priority: Optional[int] = None

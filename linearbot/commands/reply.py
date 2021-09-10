@@ -12,8 +12,8 @@ from .base import Command, with_client
 
 
 class EventMeta(NamedTuple):
-    type: Optional[LinearEventType]
-    id: Optional[UUID]
+    type: LinearEventType
+    id: UUID
     issue_id: Optional[UUID]
 
 
@@ -45,7 +45,7 @@ class CommandReply(Command):
                     issue_id = None
                 meta = EventMeta(evt_type, main_id, issue_id)
             except (KeyError, ValueError):
-                meta = None, None
+                meta = None
             self._event_meta_cache[event_id] = meta
         return meta
 
@@ -55,7 +55,7 @@ class CommandReply(Command):
         if not evt.content.get_reply_to() or evt.sender == evt.client.mxid:
             return
         meta = await self._get_event_meta(evt.room_id, evt.content.get_reply_to())
-        if meta.issue_id:
+        if meta and meta.issue_id:
             reaction_event_id = await evt.react(processing)
             new_comment_id = uuid4()
             self.bot.linear_webhook.ignore_uuids.add(new_comment_id)
@@ -72,7 +72,7 @@ class CommandReply(Command):
                 or evt.sender == self.bot.client.mxid):
             return
         meta = await self._get_event_meta(evt.room_id, evt.content.relates_to.event_id)
-        if meta.type == LinearEventType.COMMENT and meta.id:
+        if meta and meta.type == LinearEventType.COMMENT and meta.id:
             new_reaction_id = uuid4()
             self.bot.linear_webhook.ignore_uuids.add(new_reaction_id)
             await client.create_reaction(meta.id, evt.content.relates_to.key, new_reaction_id)
