@@ -1,4 +1,4 @@
-from typing import Any, Optional, Dict, List, TYPE_CHECKING
+from typing import Any, Optional, Dict, List, ClassVar, TYPE_CHECKING
 from uuid import UUID
 import json
 
@@ -43,6 +43,8 @@ class FailedToAuthenticate(LogoutError):
 
 
 class LinearClient:
+    emoji: ClassVar[Dict[str, str]] = {}
+
     bot: 'LinearBot'
     own_id: Optional[UUID]
     _cached_self: Optional[User]
@@ -232,7 +234,7 @@ class LinearClient:
                               reaction_id: Optional[UUID] = None, retry_count: int = 0) -> UUID:
         reaction_input = self._filter_none_and_uuid({
             "commentID": comment_id,
-            "emoji": emoji,
+            "emoji": self.emoji.get(emoji, emoji),
             "reactionID": reaction_id,
         })
         resp = await self.request(create_reaction, reaction_input, retry_count=retry_count)

@@ -100,7 +100,7 @@ class CommandLogin(Command):
             "redirect_uri": self._oauth_redirect_url,
             "response_type": "code",
             "state": state,
-            "scope": "read,issues:create,comments:create",
+            "scope": "read,write",
         }))
         login.event_id = await evt.reply(f"[Click here]({url}) to log in")
 

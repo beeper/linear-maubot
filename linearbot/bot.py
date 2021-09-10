@@ -1,6 +1,7 @@
 from typing import Type, Set
 from uuid import UUID
 import secrets
+import json
 
 from yarl import URL
 from sqlalchemy import MetaData
@@ -76,6 +77,8 @@ class LinearBot(Plugin):
 
         if not self.labels.has_labels():
             await self._resync_labels()
+
+        LinearClient.emoji = json.loads(await self.loader.read_file("emoji.json"))
 
     async def _resync_labels(self) -> None:
         all_labels = await self.linear_bot.get_all_labels()
