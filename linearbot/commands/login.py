@@ -93,8 +93,7 @@ class CommandLogin(Command):
             return
         state = secrets.token_urlsafe(64)
         login = LoginInProgress(user_id=evt.sender, room_id=evt.room_id, event_id=evt.event_id,
-                                state=state,
-                                lock=asyncio.Lock())
+                                state=state, lock=asyncio.Lock())
         self._logins_in_progress[state] = login
         url = str(self._oauth_request.with_query({
             "client_id": self.bot.oauth_client_id,
@@ -146,24 +145,30 @@ class CommandLogin(Command):
                                               email=html.escape(login.user.email))
         await self.bot.client.send_markdown(login.room_id, message, edits=login.event_id)
 
+    async def _locked_claim_oauth_token(self, login: LoginInProgress, code: str) -> None:
+        # Lock the login to prevent handling multiple requests at the same time
+        async with login.lock:
+            # If the request was already handled, skip re-handling and just return OK
+            if not login.user:
+                await self._claim_oauth_token(login, code)
+
     @web.get("/oauth")
     async def _handle_oauth_callback(self, request: Request) -> Response:
         try:
             state = request.url.query["state"]
             code = request.url.query["code"]
         except KeyError as e:
-            return make_response(400, "Failed to log in", f"Missing query parameter `{e}`")
+            return make_response(400, "Failed to log in", "Missing query parameter "
+                                                          f"<code>{e}</code>")
         try:
             login = self._logins_in_progress[state]
         except KeyError:
             return make_response(400, "Failed to log in", "Invalid <code>state</code> parameter. "
                                                           "Please restart the login.")
-        # Lock the login to prevent handling multiple requests at the same time
-        async with login.lock:
-            # If the request was already handled, skip re-handling and just return OK
-            if not login.user:
-                # TODO handle errors
-                await asyncio.shield(self._claim_oauth_token(login, code))
+
+        # TODO handle errors
+        await asyncio.shield(self._locked_claim_oauth_token(login, code))
+
         if not self.bot.allow_org(login.user.organization):
             return make_response(401, "Organization not allowed",
                                  not_allowed_message.format(
