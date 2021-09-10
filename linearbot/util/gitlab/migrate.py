@@ -10,7 +10,7 @@ from mautrix.util.logging import TraceLogger
 from mautrix.types import SerializableAttrs
 
 from .types import Issue, User, full_issue_query, comment_and_close_issue_query
-from ...api import LinearClient, LinearError
+from ...api import LinearClient, LinearError, GraphQLError
 
 if TYPE_CHECKING:
     from ...bot import LinearBot
@@ -267,7 +267,7 @@ class GitLabMigrator:
             resp = await author_client.create_issue(team_id, issue.title, description=description,
                                                     estimate=estimate, labels=labels,
                                                     state_id=state_id, issue_id=new_issue_id,
-                                                    assignee_id=assignee_id)
+                                                    assignee_id=assignee_id, retry_count=3)
         except LinearError as e:
             raise MigrationError(str(e), gitlab_id) from e
         assert resp.id == new_issue_id
@@ -282,7 +282,8 @@ class GitLabMigrator:
             comment_id = uuid4()
             self.bot.linear_webhook.ignore_uuids.add(comment_id)
             try:
-                resp_id = await comment_client.create_comment(resp.id, body, comment_id=comment_id)
+                resp_id = await comment_client.create_comment(resp.id, body, comment_id=comment_id,
+                                                              retry_count=3)
             except LinearError as e:
                 raise MigrationError(str(e), gitlab_id) from e
             assert resp_id == comment_id

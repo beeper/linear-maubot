@@ -1,2 +1,2 @@
 from .client import (LinearClient, LinearError, LogoutError, TokenAlreadyRevokedError,
-                     FailedToAuthenticate)
+                     FailedToAuthenticate, GraphQLError)

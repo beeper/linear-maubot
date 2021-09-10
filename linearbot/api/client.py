@@ -90,8 +90,15 @@ class LinearClient:
             except (json.JSONDecodeError, KeyError):
                 raise LogoutError(f"Unknown error while logging out (HTTP {resp.status})")
 
+    @staticmethod
+    def _is_retriable(errors: List[Dict[str, Any]]) -> bool:
+        try:
+            return errors[0]["extensions"]["code"] == "INTERNAL_SERVER_ERROR"
+        except (KeyError, IndexError):
+            return False
+
     async def request(self, query: str, variables: Optional[Dict[str, Any]] = None,
-                      operation_name: Optional[str] = None) -> Any:
+                      operation_name: Optional[str] = None, retry_count: int = 0) -> Any:
         data = {
             "operationName": operation_name,
             "query": query,
@@ -99,19 +106,22 @@ class LinearClient:
         }
         data = {k: v for k, v in data.items() if v is not None}
         headers = {"Authorization": self.authorization}
-        resp = await self.bot.http.post(self.graphql_url, json=data, headers=headers)
-        resp_data = await resp.json()
-        print("GraphQL response:", resp.status, resp_data)
-        try:
-            errors = resp_data["errors"]
-            if len(errors) > 0:
-                raise GraphQLError(errors[0])
-        except KeyError:
-            pass
-        try:
-            return resp_data["data"]
-        except KeyError:
-            raise LinearError("Didn't get data from GraphQL request")
+        while True:
+            resp = await self.bot.http.post(self.graphql_url, json=data, headers=headers)
+            resp_data = await resp.json()
+            print("GraphQL response:", resp.status, resp_data)
+            try:
+                errors = resp_data["errors"]
+                if retry_count > 0 and self._is_retriable(errors):
+                    continue
+                elif len(errors) > 0:
+                    raise GraphQLError(errors[0])
+            except KeyError:
+                pass
+            try:
+                return resp_data["data"]
+            except KeyError:
+                raise LinearError("Didn't get data from GraphQL request")
 
     async def get_self(self) -> User:
         if self._cached_self is not None:
@@ -159,7 +169,8 @@ class LinearClient:
                 for k, v in data.items() if v is not None}
 
     async def create_label(self, team_id: UUID, name: str, description: Optional[str] = None,
-                           color: Optional[str] = None, label_id: Optional[UUID] = None) -> UUID:
+                           color: Optional[str] = None, label_id: Optional[UUID] = None,
+                           retry_count: int = 0) -> UUID:
         label_input = self._filter_none_and_uuid({
             "id": label_id,
             "teamId": team_id,
@@ -167,26 +178,29 @@ class LinearClient:
             "description": description,
             "color": color,
         })
-        resp = await self.request(create_label, {"input": label_input})
+        resp = await self.request(create_label, {"input": label_input}, retry_count=retry_count)
         if not resp["issueLabelCreate"]["success"]:
             raise SuccessFalseError("Failed to create label")
         return UUID(resp["issueLabelCreate"]["issueLabel"]["id"])
 
     async def update_label(self, label_id: UUID, name: Optional[str] = None,
-                           description: Optional[str] = None, color: Optional[str] = None) -> None:
+                           description: Optional[str] = None, color: Optional[str] = None,
+                           retry_count: int = 0) -> None:
         update_input = self._filter_none_and_uuid({
             "name": name,
             "description": description,
             "color": color,
         })
-        resp = await self.request(update_label, {"labelID": label_id, "input": update_input})
+        resp = await self.request(update_label, {"labelID": label_id, "input": update_input},
+                                  retry_count=retry_count)
         if not resp["issueLabelUpdate"]["success"]:
             raise SuccessFalseError("Failed to update label")
 
     async def create_issue(self, team_id: UUID, title: str, description: str,
                            estimate: Optional[int] = None, labels: Optional[List[UUID]] = None,
                            state_id: Optional[UUID] = None, assignee_id: Optional[UUID] = None,
-                           issue_id: Optional[UUID] = None) -> IssueCreateResponse:
+                           issue_id: Optional[UUID] = None, retry_count: int = 0
+                           ) -> IssueCreateResponse:
         issue_input = self._filter_none_and_uuid({
             "id": issue_id,
             "teamId": team_id,
@@ -197,31 +211,31 @@ class LinearClient:
             "assigneeId": assignee_id,
             "labelIds": [str(label_id) for label_id in (labels or [])]
         })
-        resp = await self.request(create_issue, {"input": issue_input})
+        resp = await self.request(create_issue, {"input": issue_input}, retry_count=retry_count)
         if not resp["issueCreate"]["success"]:
             raise SuccessFalseError("Failed to create issue")
         return IssueCreateResponse.deserialize(resp["issueCreate"]["issue"])
 
-    async def create_comment(self, issue_id: UUID, body: str, comment_id: Optional[UUID] = None
-                             ) -> UUID:
+    async def create_comment(self, issue_id: UUID, body: str, comment_id: Optional[UUID] = None,
+                             retry_count: int = 0) -> UUID:
         comment_input = self._filter_none_and_uuid({
             "id": comment_id,
             "issueId": issue_id,
             "body": body,
         })
-        resp = await self.request(create_comment, {"input": comment_input})
+        resp = await self.request(create_comment, {"input": comment_input}, retry_count=retry_count)
         if not resp["commentCreate"]["success"]:
             raise SuccessFalseError("Failed to create comment")
         return UUID(resp["commentCreate"]["comment"]["id"])
 
     async def create_reaction(self, comment_id: UUID, emoji: str,
-                              reaction_id: Optional[UUID] = None) -> UUID:
+                              reaction_id: Optional[UUID] = None, retry_count: int = 0) -> UUID:
         reaction_input = self._filter_none_and_uuid({
             "commentID": comment_id,
             "emoji": emoji,
             "reactionID": reaction_id,
         })
-        resp = await self.request(create_reaction, reaction_input)
+        resp = await self.request(create_reaction, reaction_input, retry_count=retry_count)
         if not resp["reactionCreate"]["success"]:
             raise SuccessFalseError("Failed to create reaction")
         return UUID(resp["reactionCreate"]["reaction"]["id"])
