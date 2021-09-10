@@ -88,9 +88,16 @@ class CommandLogin(Command):
     @Command.linear.subcommand(help="Log into the bot with your Linear account")
     async def login(self, evt: MessageEvent) -> None:
         if self.bot.clients.get_by_mxid(evt.sender):
-            await evt.reply("You already have a token stored. "
-                            "Log out with `!linear logout` first.")
-            return
+            await evt.reply("You already have a token stored. Log out with `!linear logout` first "
+                            "or use `!linear relogin` to relogin and override the current token.")
+        else:
+            await self._login(evt)
+
+    @Command.linear.subcommand(help="Relogin into the bot to refresh the stored access token")
+    async def relogin(self, evt: MessageEvent) -> None:
+        await self._login(evt)
+
+    async def _login(self, evt: MessageEvent) -> None:
         state = secrets.token_urlsafe(64)
         login = LoginInProgress(user_id=evt.sender, room_id=evt.room_id, event_id=evt.event_id,
                                 state=state, lock=asyncio.Lock())
