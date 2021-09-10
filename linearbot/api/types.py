@@ -128,11 +128,24 @@ class LinearEventData:
 
 
 @dataclass
-class Label(MinimalLabel, SerializableAttrs, LinearEventData):
+class LabelEvent(MinimalLabel, SerializableAttrs, LinearEventData):
     created_at: LinearDateTime = field(json="createdAt")
     updated_at: LinearDateTime = field(json="updatedAt")
     team_id: UUID = field(json="teamId")
     creator_id: UUID = field(json="creatorId")
+
+
+@dataclass
+class Label(MinimalLabel, SerializableAttrs):
+    description: str
+    team: MinimalTeam
+    created_at: LinearDateTime = field(json="createdAt")
+    updated_at: LinearDateTime = field(json="updatedAt")
+
+    def meta_equals(self, other: 'Label') -> bool:
+        return (self.name == other.name
+                and self.color == other.color
+                and self.description == other.description)
 
 
 @dataclass
@@ -243,13 +256,13 @@ class UpdatedFrom(SerializableAttrs):
     updated_at: LinearDateTime = field(json="updatedAt")
 
 
-LinearEventContent = Union[Issue, Comment, Reaction, Label, Attachment]
+LinearEventContent = Union[Issue, Comment, Reaction, LabelEvent, Attachment]
 type_to_class = {
     LinearEventType.ISSUE: Issue,
     LinearEventType.COMMENT: Comment,
     LinearEventType.REACTION: Reaction,
     LinearEventType.PROJECT: Obj,
-    LinearEventType.ISSUE_LABEL: Label,
+    LinearEventType.ISSUE_LABEL: LabelEvent,
     LinearEventType.ATTACHMENT: Attachment,
 }
 

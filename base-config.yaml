@@ -36,6 +36,7 @@ user_mapping: {}
 # label_mapping has GitLab label names as the keys, and an object with `team`, `state` and/or `label` keys as the
 # value. Those keys should contain the Linear team, state or label IDs.
 #
-# team_label_mapping is a mapping from Linear team IDs to a mapping from GitLab label names to Linear label IDs
+# label_name_mapping is a mapping from GitLab label names to Linear label names.
+# The label IDs will be fetched from the server since they depend on the team.
 label_mapping: {}
-team_label_mapping: {}
+label_name_mapping: {}

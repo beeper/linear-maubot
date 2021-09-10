@@ -4,9 +4,9 @@ import json
 
 from yarl import URL
 
-from .types import User, IssueMeta, IssueCreateResponse
-from .queries import (get_user_details, get_user, get_issue, create_issue, create_comment,
-                      create_reaction)
+from .types import User, IssueMeta, IssueCreateResponse, Label
+from .queries import (get_user_details, get_user, get_issue, get_labels,
+                      create_issue, create_comment, create_reaction, create_label, update_label)
 
 if TYPE_CHECKING:
     from ..bot import LinearBot
@@ -140,11 +140,54 @@ class LinearClient:
             self._issue_cache[issue.id] = issue
             return issue
 
+    async def get_all_labels(self) -> Dict[UUID, Dict[str, Label]]:
+        teams = {}
+        has_next_page = True
+        cursor = None
+        while has_next_page:
+            resp = await self.request(get_labels, variables={"cursor": cursor})
+            for raw_label in resp["issueLabels"]["nodes"]:
+                label = Label.deserialize(raw_label)
+                teams.setdefault(label.team.id, {})[label.name] = label
+            has_next_page = resp["issueLabels"]["pageInfo"]["hasNextPage"]
+            cursor = resp["issueLabels"]["pageInfo"]["endCursor"]
+        return teams
+
+    @staticmethod
+    def _filter_none_and_uuid(data: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: (str(v) if isinstance(v, UUID) else v)
+                for k, v in data.items() if v is not None}
+
+    async def create_label(self, team_id: UUID, name: str, description: Optional[str] = None,
+                           color: Optional[str] = None, label_id: Optional[UUID] = None) -> UUID:
+        label_input = self._filter_none_and_uuid({
+            "id": label_id,
+            "teamId": team_id,
+            "name": name,
+            "description": description,
+            "color": color,
+        })
+        resp = await self.request(create_label, {"input": label_input})
+        if not resp["issueLabelCreate"]["success"]:
+            raise SuccessFalseError("Failed to create label")
+        return UUID(resp["issueLabelCreate"]["issueLabel"]["id"])
+
+    async def update_label(self, label_id: UUID, name: Optional[str] = None,
+                           description: Optional[str] = None, color: Optional[str] = None) -> None:
+        update_input = self._filter_none_and_uuid({
+            "name": name,
+            "description": description,
+            "color": color,
+        })
+        resp = await self.request(update_label, {"labelID": label_id, "input": update_input})
+        if not resp["issueLabelUpdate"]["success"]:
+            raise SuccessFalseError("Failed to update label")
+
     async def create_issue(self, team_id: UUID, title: str, description: str,
                            estimate: Optional[int] = None, labels: Optional[List[UUID]] = None,
                            state_id: Optional[UUID] = None, assignee_id: Optional[UUID] = None,
                            issue_id: Optional[UUID] = None) -> IssueCreateResponse:
-        issue_input = {
+        issue_input = self._filter_none_and_uuid({
             "id": issue_id,
             "teamId": team_id,
             "title": title,
@@ -153,9 +196,7 @@ class LinearClient:
             "stateId": state_id,
             "assigneeId": assignee_id,
             "labelIds": [str(label_id) for label_id in (labels or [])]
-        }
-        issue_input = {k: (str(v) if isinstance(v, UUID) else v)
-                       for k, v in issue_input.items() if v is not None}
+        })
         resp = await self.request(create_issue, {"input": issue_input})
         if not resp["issueCreate"]["success"]:
             raise SuccessFalseError("Failed to create issue")
@@ -163,12 +204,11 @@ class LinearClient:
 
     async def create_comment(self, issue_id: UUID, body: str, comment_id: Optional[UUID] = None
                              ) -> UUID:
-        comment_input = {
-            "id": str(comment_id) if comment_id else None,
-            "issueId": str(issue_id),
+        comment_input = self._filter_none_and_uuid({
+            "id": comment_id,
+            "issueId": issue_id,
             "body": body,
-        }
-        comment_input = {k: v for k, v in comment_input.items() if v is not None}
+        })
         resp = await self.request(create_comment, {"input": comment_input})
         if not resp["commentCreate"]["success"]:
             raise SuccessFalseError("Failed to create comment")
@@ -176,11 +216,12 @@ class LinearClient:
 
     async def create_reaction(self, comment_id: UUID, emoji: str,
                               reaction_id: Optional[UUID] = None) -> UUID:
-        resp = await self.request(create_reaction, {
-            "commentID": str(comment_id),
+        reaction_input = self._filter_none_and_uuid({
+            "commentID": comment_id,
             "emoji": emoji,
-            "reactionID": str(reaction_id) if reaction_id else None,
+            "reactionID": reaction_id,
         })
+        resp = await self.request(create_reaction, reaction_input)
         if not resp["reactionCreate"]["success"]:
             raise SuccessFalseError("Failed to create reaction")
         return UUID(resp["reactionCreate"]["reaction"]["id"])

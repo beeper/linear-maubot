@@ -67,3 +67,43 @@ create_reaction = """mutation CreateReaction($commentID: String!, $emoji: String
         }
     }
 }"""
+
+# language=graphql
+get_labels = """query GetLabels($cursor: String) {
+    issueLabels(after: $cursor, first: 50) {
+        nodes {
+            id
+            name
+            description
+            color
+            createdAt
+            updatedAt
+            team {
+                id
+                key
+                name
+            }
+        }
+        pageInfo {
+            endCursor
+            hasNextPage
+        }
+    }
+}"""
+
+# language=graphql
+create_label = """mutation CreateLabel($input: IssueLabelCreateInput!) {
+    issueLabelCreate(input: $input) {
+        success
+        issueLabel {
+            id
+        }
+    }
+}"""
+
+# language=graphql
+update_label = """mutation UpdateLabel($labelID: String!, $input: IssueLabelUpdateInput!) {
+    issueLabelUpdate(id: $labelID, input: $input) {
+        success
+    }
+}"""

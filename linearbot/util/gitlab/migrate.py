@@ -52,7 +52,7 @@ class GitLabMigrator:
     gitlab_url: URL
     gitlab_token: str
     _label_mapping: Dict[str, LabelMapping]
-    _team_label_mapping: Dict[UUID, Dict[str, UUID]]
+    _label_name_mapping: Dict[str, str]
     _team_mapping: Dict[str, UUID]
     _user_mapping: Dict[str, Union[UUID, str, None]]
 
@@ -60,9 +60,9 @@ class GitLabMigrator:
         self.bot = bot
         self.log = bot.log.getChild("migration")
         self._label_mapping = {}
+        self._label_name_mapping = {}
         self._team_mapping = {}
         self._user_mapping = {}
-        self._team_label_mapping = {}
 
     @property
     def label_mapping(self) -> Dict[str, LabelMapping]:
@@ -77,16 +77,13 @@ class GitLabMigrator:
         }
 
     @property
-    def team_label_mapping(self) -> Dict[UUID, Dict[str, UUID]]:
-        return self._team_label_mapping
+    def label_name_mapping(self) -> Dict[str, str]:
+        return self._label_name_mapping
 
-    @team_label_mapping.setter
-    def team_label_mapping(self, mapping: Dict[str, Dict[str, str]]) -> None:
-        self._team_label_mapping = {
-            UUID(team_id): {label_name.lower(): UUID(label_id)
-                            for label_name, label_id in team_labels.items()}
-            for team_id, team_labels in mapping.items()
-        }
+    @label_name_mapping.setter
+    def label_name_mapping(self, mapping: Dict[str, str]) -> None:
+        self._label_name_mapping = {gitlab_name.lower(): linear_name
+                                    for gitlab_name, linear_name in mapping.items()}
 
     @property
     def team_mapping(self) -> Dict[str, UUID]:
@@ -253,7 +250,13 @@ class GitLabMigrator:
                 state_id = mapping.state
         for label in issue.labels:
             try:
-                labels.append(self.team_label_mapping[team_id][label.title.lower()])
+                linear_label_name = self.label_name_mapping[label.title.lower()]
+                linear_label_id = self.bot.labels.get(team_id, linear_label_name)
+                if linear_label_id is None:
+                    self.log.warning(f"Didn't find ID for Linear label {linear_label_name} "
+                                     f"in {team_id}")
+                else:
+                    labels.append(linear_label_id)
             except KeyError:
                 continue
 
@@ -287,7 +290,7 @@ class GitLabMigrator:
                            f"to {resp.identifier} ({resp.id}), comment ID {comment_id}")
 
         close_text = f"Issue was migrated to [{resp.identifier}]({resp.url})"
-        # await self.comment_and_close_issue(project=repo_name, issue_id=issue_num,
-        #                                    noteable_id=issue.id, text=close_text)
+        await self.comment_and_close_issue(project=repo_name, issue_id=issue_num,
+                                           noteable_id=issue.id, text=close_text)
 
         return MigrationResult(gitlab_id=gitlab_id, linear_url=resp.url, linear_id=resp.identifier)

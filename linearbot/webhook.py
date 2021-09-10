@@ -1,4 +1,4 @@
-from typing import Set, List, Dict, TYPE_CHECKING
+from typing import Set, List, TYPE_CHECKING
 from uuid import UUID
 import asyncio
 import json
@@ -12,7 +12,7 @@ from mautrix.types import (RoomID, EventType, StateEvent, Membership, Serializer
 from mautrix.util.formatter import parse_html
 from maubot.handlers import web, event
 
-from .api.types import LinearEvent, MinimalUser, LINEAR_ENUMS
+from .api.types import LinearEvent, LinearEventType, EventAction, LINEAR_ENUMS
 from .util.template import TemplateManager, TemplateNotFound, TemplateUtil
 
 if TYPE_CHECKING:
@@ -57,6 +57,8 @@ class LinearWebhook:
                            " that was marked to be ignored")
             self.ignore_uuids.remove(evt.data.id)
             return
+        if evt.type == LinearEventType.ISSUE_LABEL and evt.action == EventAction.CREATE:
+            self.bot.labels.put(evt.data.team_id, evt.data.name, evt.data.id)
 
         template_name = f"{evt.type.name.lower()}_{evt.action.name.lower()}"
         try:

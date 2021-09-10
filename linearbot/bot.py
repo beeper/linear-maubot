@@ -14,6 +14,7 @@ from .api import LinearClient
 from .webhook import LinearWebhook
 from .commands import LinearCommands
 from .client_manager import ClientManager
+from .label_manager import LabelManager
 from .util.gitlab import GitLabMigrator
 from .util.prefixless_dm import DMCommandHandler
 
@@ -39,7 +40,7 @@ class Config(BaseProxyConfig):
         helper.copy_dict("team_mapping")
         helper.copy_dict("user_mapping")
         helper.copy_dict("label_mapping")
-        helper.copy_dict("team_label_mapping")
+        helper.copy_dict("label_name_mapping")
 
 
 class LinearBot(Plugin):
@@ -48,6 +49,7 @@ class LinearBot(Plugin):
     _allowed_organizations: Set[UUID]
     linear_webhook: LinearWebhook
     clients: ClientManager
+    labels: LabelManager
     linear_bot: LinearClient
     commands: LinearCommands
     migrator: GitLabMigrator
@@ -59,18 +61,27 @@ class LinearBot(Plugin):
         self.linear_bot = LinearClient(self)
         self.linear_webhook = await LinearWebhook(self).start()
         self.commands = LinearCommands(self)
-        assert self.commands._event_meta_cache is not None
-        assert self.commands._logins_in_progress is not None
         self.clients = ClientManager(self, db_metadata)
+        self.labels = LabelManager(self, db_metadata)
         self.migrator = GitLabMigrator(self)
         self.prefixless_dm = DMCommandHandler(self.commands)
 
         self.on_external_config_update()
         db_metadata.create_all(self.database)
         self.clients.load_db()
+        self.labels.load_db()
 
         self.register_handler_class(self.linear_webhook)
         self.register_handler_class(self.commands)
+
+        if not self.labels.has_labels():
+            await self._resync_labels()
+
+    async def _resync_labels(self) -> None:
+        all_labels = await self.linear_bot.get_all_labels()
+        for team_labels in all_labels.values():
+            for label in team_labels.values():
+                self.labels.put(label.team.id, label.name, label.id)
 
     async def stop(self) -> None:
         self.client.remove_event_handler(EventType.ROOM_MESSAGE, self.prefixless_dm.handle)
@@ -86,11 +97,11 @@ class LinearBot(Plugin):
         self.oauth_client_id = self.config["linear.client_id"]
         self.oauth_client_secret = self.config["linear.client_secret"]
         self._allowed_organizations = {UUID(org_id) for org_id
-                                      in self.config["linear.allowed_organizations"]}
+                                       in self.config["linear.allowed_organizations"]}
         self.migrator.gitlab_url = URL(self.config["gitlab.url"])
         self.migrator.gitlab_token = self.config["gitlab.token"]
         self.migrator.label_mapping = self.config["label_mapping"]
-        self.migrator.team_label_mapping = self.config["team_label_mapping"]
+        self.migrator.label_name_mapping = self.config["label_name_mapping"]
         self.migrator.team_mapping = self.config["team_mapping"]
         self.migrator.user_mapping = self.config["user_mapping"]
         if self.config["prefixless_dm"]:
