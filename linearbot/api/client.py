@@ -194,7 +194,7 @@ class LinearClient:
             "description": description,
             "color": color,
         })
-        resp = await self.request(update_label, {"labelID": label_id, "input": update_input},
+        resp = await self.request(update_label, {"labelID": str(label_id), "input": update_input},
                                   retry_count=retry_count)
         if not resp["issueLabelUpdate"]["success"]:
             raise SuccessFalseError("Failed to update label")
