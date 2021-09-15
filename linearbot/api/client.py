@@ -61,6 +61,7 @@ class LinearClient:
         self.authorization = authorization
         self.own_id = own_id
         self.bot = bot
+        self.log = bot.log.getChild("client")
         self._cached_self = None
 
         self._user_cache = {}
@@ -75,13 +76,13 @@ class LinearClient:
             "grant_type": "authorization_code",
         })
         resp_body = await resp.json()
-        print("Login response:", resp.status, resp_body)
+        self.log.trace("Login response: %s %s", resp.status, resp_body)
         self.authorization = f"{resp_body['token_type']} {resp_body['access_token']}"
 
     async def logout(self) -> None:
         resp = await self.bot.http.post(self.oauth_revoke_url,
                                         headers={"Authorization": self.authorization})
-        print("Logout response:", resp.status, await resp.json())
+        self.log.trace("Logout response: %s %s", resp.status, await resp.json())
         if resp.status != 200:
             try:
                 data = await resp.json()
@@ -111,7 +112,7 @@ class LinearClient:
         while True:
             resp = await self.bot.http.post(self.graphql_url, json=data, headers=headers)
             resp_data = await resp.json()
-            print("GraphQL response:", resp.status, resp_data)
+            self.log.trace("GraphQL response: %s %s", resp.status, resp_data)
             try:
                 errors = resp_data["errors"]
                 if retry_count > 0 and self._is_retriable(errors):

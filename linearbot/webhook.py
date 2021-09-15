@@ -146,7 +146,7 @@ class LinearWebhook:
             return Response(status=200, text="200: OK\n"
                                              "Delivery ID was already handled, webhook ignored.\n")
         self.handled_webhooks.add(delivery_id)
-        print("Webhook content:", body)
+        self.log.trace("Webhook content: %s", body)
         try:
             evt = LinearEvent.deserialize(body)
         except SerializerError as e:

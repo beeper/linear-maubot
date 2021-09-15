@@ -156,7 +156,7 @@ class GitLabMigrator:
             },
         }
         resp = await self.gitlab_graphql(payload, "closing GitLab issue")
-        print("GitLab issue close response:", resp)
+        self.log.trace("GitLab issue close response: %s", resp)
 
     def parse_issue_url(self, url: URL) -> Tuple[str, int]:
         if url.host != self.gitlab_url.host:
