@@ -1,8 +1,12 @@
 {% set creator = cli.get_user(data.creator_id) %}
+{% set rageshake = data.title.startswith("Rageshake from ") %}
+{% if rageshake %}<details><summary>{% endif %}
 <a href="{{ creator.url }}">{{ creator.display_name }}</a> created
 issue <a href="{{ url }}">{{ data.team.key }}-{{ data.number }}</a>: {{ data.title }}
+{% if rageshake %}</summary>{% endif %}
 {% if data.description %}
     <blockquote>
         {{ data.description | markdown }}
     </blockquote>
 {% endif %}
+{% if rageshake %}</details>{% endif %}
