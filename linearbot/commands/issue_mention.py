@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timedelta
 
 import attr
+from mautrix.types.event.message import Format, MessageType, TextMessageEventContent
 from linearbot.util.template import TemplateManager
 from typing import Dict, Iterable, List, Optional, NamedTuple, Tuple
 from uuid import UUID, uuid4
@@ -24,6 +25,7 @@ class CommandIssueMention(Command):
         super().__init__(bot)
         self._issue_cache: Dict[str, Tuple[IssueSummary, datetime]] = {}
         self.templates = TemplateManager(self.bot.loader, "templates/messages")
+        self._reply_event_ids: Dict[EventID, EventID] = {}
 
     issue_mention_re = re.compile(r"[A-Z]+-\d+")
 
@@ -38,7 +40,7 @@ class CommandIssueMention(Command):
                 "url": issue.url,
                 "description": issue.description or "",
                 "details": [
-                    issue.priority_label or "",
+                    (issue.priority_label or "").replace("No priority", ""),
                     (
                         f"""<span data-mx-color="{issue.state.color}">{issue.state.name}</span>"""
                         if issue.state
@@ -81,14 +83,39 @@ class CommandIssueMention(Command):
         if evt.sender == self.bot.client.mxid:
             return
 
-        issue_details = await asyncio.gather(
+        issue_details_futures = await asyncio.gather(
             *(
                 self.get_issue_details(client, issue_identifier)
-                for issue_identifier in self.issue_mention_re.findall(evt.content.body)
+                for issue_identifier in set(
+                    self.issue_mention_re.findall(evt.content.body)
+                )
             )
         )
+        issue_details = [d for d in issue_details_futures if d]
+        if issue_details:
+            issue_summaries = await self.format_issue_summaries(issue_details)
+            content = TextMessageEventContent(
+                msgtype=MessageType.NOTICE,
+                format=Format.HTML,
+                formatted_body=issue_summaries,
+            )
+            # Detect edits
+            edits = evt.content.get_edit()
+            if edits:
+                reply_event = self._reply_event_ids.get(edits)
+                if reply_event:
+                    content.set_edit(reply_event)
+                else:
+                    content.set_reply(edits)
+                await evt.respond(content)
+                return
 
-        await evt.reply(
-            await self.format_issue_summaries((i for i in issue_details if i)),
-            allow_html=True,
-        )
+            reply_event_id = await evt.reply(issue_summaries, allow_html=True)
+            self._reply_event_ids[evt.event_id] = reply_event_id
+        else:
+            edits = evt.content.get_edit()
+            if edits:
+                reply_event = self._reply_event_ids.get(edits)
+                if reply_event:
+                    await evt.client.redact(evt.room_id, reply_event)
+                    del self._reply_event_ids[edits]
