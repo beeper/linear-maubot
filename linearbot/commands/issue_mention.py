@@ -6,7 +6,7 @@ from mautrix.types.event.message import Format, MessageType, TextMessageEventCon
 from linearbot.util.template import TemplateManager
 from typing import Dict, Iterable, Optional, Tuple
 
-from mautrix.types import EventType, EventID
+from mautrix.types import EventType, EventID, MessageType
 from maubot.handlers import event
 from maubot import MessageEvent
 
@@ -78,7 +78,7 @@ class CommandIssueMention(Command):
 
     @event.on(EventType.ROOM_MESSAGE)
     async def on_issue_mention(self, evt: MessageEvent) -> None:
-        if evt.sender == self.bot.client.mxid:
+        if evt.sender == self.bot.client.mxid or evt.content.msgtype != MessageType.TEXT:
             return
 
         client = self.bot.clients.get_by_mxid(evt.sender)
