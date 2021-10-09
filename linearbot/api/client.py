@@ -4,8 +4,8 @@ import json
 
 from yarl import URL
 
-from .types import User, IssueMeta, IssueCreateResponse, Label
-from .queries import (get_user_details, get_user, get_issue, get_labels,
+from .types import Issue, User, IssueMeta, IssueSummary, IssueCreateResponse, Label
+from .queries import (get_user_details, get_user, get_issue, get_issue_details, get_labels,
                       create_issue, create_comment, create_reaction, create_label, update_label)
 
 if TYPE_CHECKING:
@@ -152,6 +152,11 @@ class LinearClient:
             issue = IssueMeta.deserialize(resp["issue"])
             self._issue_cache[issue.id] = issue
             return issue
+
+    async def get_issue_details(self, issue_identifier: str) -> IssueSummary:
+        resp = await self.request(get_issue_details, variables={"issueID": issue_identifier})
+        issue = IssueSummary.deserialize(resp["issue"])
+        return issue
 
     async def get_all_labels(self) -> Dict[UUID, Dict[str, Label]]:
         teams = {}

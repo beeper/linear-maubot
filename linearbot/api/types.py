@@ -70,6 +70,12 @@ class MinimalUser(SerializableAttrs):
 
 
 @dataclass
+class MinimalProject(SerializableAttrs):
+    id: UUID
+    name: str
+
+
+@dataclass
 class Organization(SerializableAttrs):
     id: UUID
     name: str
@@ -161,6 +167,16 @@ class IssueMeta(MinimalIssue):
     identifier: str
     url: str
 
+
+@dataclass
+class IssueSummary(IssueMeta):
+    assignee: Optional[User] = None
+    cycle: Optional[Cycle] = None
+    description: Optional[str] = None
+    estimate: Optional[int] = None
+    priority_label: Optional[str] = field(json="priorityLabel", default=None)
+    project: Optional[MinimalProject] = None
+    state: Optional[IssueState] = None
 
 @dataclass(kw_only=True)
 class Issue(MinimalIssue, SerializableAttrs, LinearEventData):
