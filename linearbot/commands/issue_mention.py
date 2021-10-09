@@ -27,7 +27,7 @@ class CommandIssueMention(Command):
         self.templates = TemplateManager(self.bot.loader, "templates/messages")
         self._reply_event_ids: Dict[EventID, EventID] = {}
 
-    issue_mention_re = re.compile(r"[A-Z]+-\d+")
+    issue_mention_re = re.compile(r"[A-Z]{1,5}-\d+")
 
     async def format_issue_summaries(self, issues: Iterable[IssueSummary]) -> str:
         template = self.templates["issue_summary"]
@@ -63,7 +63,7 @@ class CommandIssueMention(Command):
         if cached:
             self.bot.log.info(f"Got cached issue summary for {issue_identifier}")
             summary, expiration = cached
-            if summary and expiration < datetime.now():
+            if summary and expiration > datetime.now():
                 return summary
 
         self.bot.log.info(f"Getting summary for {issue_identifier}")
