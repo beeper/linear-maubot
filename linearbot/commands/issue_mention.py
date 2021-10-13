@@ -78,10 +78,22 @@ class CommandIssueMention(Command):
             return None
 
     @event.on(EventType.ROOM_MESSAGE)
-    @with_client(error_message=False)
-    async def on_issue_mention(self, evt: MessageEvent, client: LinearClient) -> None:
+    async def on_issue_mention(self, evt: MessageEvent) -> None:
         if evt.sender == self.bot.client.mxid:
             return
+
+        client = self.bot.clients.get_by_mxid(evt.sender)
+        if not client:
+            on_behalf_of = evt.content.get("space.nevarro.standupbot.on_behalf_of")
+            if not on_behalf_of:
+                return
+            if evt.sender not in self.bot.on_behalf_of_whitelist.get(evt.room_id, []):
+                return
+
+            self.bot.log.info(f"{evt.sender} sent message on behalf of {on_behalf_of}")
+            client = self.bot.clients.get_by_mxid(evt.sender)
+            if not client:
+                return
 
         issue_details_futures = await asyncio.gather(
             *(
