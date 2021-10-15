@@ -1,28 +1,33 @@
+from typing import Dict, Iterable, Optional, Tuple, TYPE_CHECKING
+from datetime import datetime, timedelta
 import asyncio
 import re
-from datetime import datetime, timedelta
 
-from mautrix.types.event.message import Format, MessageType, TextMessageEventContent
-from linearbot.util.template import TemplateManager
-from typing import Dict, Iterable, Optional, Tuple
-
-from mautrix.types import EventType, EventID, MessageType
+from mautrix.types import EventType, EventID, MessageType, Format, TextMessageEventContent
 from maubot.handlers import event
 from maubot import MessageEvent
 
 from ..api import LinearClient
 from ..api.types import IssueSummary
+from ..util.template import TemplateManager
 from .base import Command
+
+if TYPE_CHECKING:
+    from ..bot import LinearBot
 
 
 class CommandIssueMention(Command):
     templates: TemplateManager
+    _issue_cache: Dict[str, Tuple[IssueSummary, datetime]]
+    _reply_event_ids: Dict[EventID, EventID]
+    _event_reply_working_set_lock: asyncio.Lock
 
-    def __init__(self, bot: "LinearBot") -> None:
+    def __init__(self, bot: 'LinearBot') -> None:
         super().__init__(bot)
-        self._issue_cache: Dict[str, Tuple[IssueSummary, datetime]] = {}
+        self._issue_cache = {}
         self.templates = TemplateManager(self.bot.loader, "templates/messages")
-        self._reply_event_ids: Dict[EventID, EventID] = {}
+        self._reply_event_ids = {}
+        self._event_reply_working_set_lock = asyncio.Lock()
 
     issue_mention_re = re.compile(r"[A-Z]{1,5}-\d+")
 
@@ -74,25 +79,23 @@ class CommandIssueMention(Command):
         except Exception:
             return None
 
-    _event_reply_working_set_lock = asyncio.Lock()
+    def _get_on_behalf_of(self, evt: MessageEvent) -> Optional[LinearClient]:
+        if evt.sender not in self.bot.on_behalf_of_whitelist.get(evt.room_id, []):
+            return None
+        on_behalf_of = evt.content.get("space.nevarro.standupbot.on_behalf_of")
+        if not on_behalf_of:
+            return None
+        self.bot.log.info(f"{evt.sender} sent message on behalf of {on_behalf_of}")
+        return self.bot.clients.get_by_mxid(evt.sender)
 
     @event.on(EventType.ROOM_MESSAGE)
     async def on_issue_mention(self, evt: MessageEvent) -> None:
         if evt.sender == self.bot.client.mxid or evt.content.msgtype != MessageType.TEXT:
             return
 
-        client = self.bot.clients.get_by_mxid(evt.sender)
+        client = self.bot.clients.get_by_mxid(evt.sender) or self._get_on_behalf_of(evt)
         if not client:
-            on_behalf_of = evt.content.get("space.nevarro.standupbot.on_behalf_of")
-            if not on_behalf_of:
-                return
-            if evt.sender not in self.bot.on_behalf_of_whitelist.get(evt.room_id, []):
-                return
-
-            self.bot.log.info(f"{evt.sender} sent message on behalf of {on_behalf_of}")
-            client = self.bot.clients.get_by_mxid(evt.sender)
-            if not client:
-                return
+            return
 
         async with self._event_reply_working_set_lock:
             self.bot.log.silly(f"_event_reply_working_set_lock acquired for {evt.event_id}")
