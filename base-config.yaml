@@ -40,3 +40,9 @@ user_mapping: {}
 # The label IDs will be fetched from the server since they depend on the team.
 label_mapping: {}
 label_name_mapping: {}
+
+# Whitelist for rooms and users who are able to be authenticated via the sender
+# in the space.nevarro.standupbot.on_behalf_of field in the message content.
+on_behalf_of_whitelist:
+    "!roomid:example.com":
+    - "@user:example.com"

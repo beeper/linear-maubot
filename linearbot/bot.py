@@ -43,6 +43,8 @@ class Config(BaseProxyConfig):
         helper.copy_dict("label_mapping")
         helper.copy_dict("label_name_mapping")
 
+        helper.copy_dict("on_behalf_of_whitelist")
+
 
 class LinearBot(Plugin):
     oauth_client_id: str
@@ -107,6 +109,7 @@ class LinearBot(Plugin):
         self.migrator.label_name_mapping = self.config["label_name_mapping"]
         self.migrator.team_mapping = self.config["team_mapping"]
         self.migrator.user_mapping = self.config["user_mapping"]
+        self.on_behalf_of_whitelist = self.config["on_behalf_of_whitelist"]
         if self.config["prefixless_dm"]:
             handlers = self.client.event_handlers.setdefault(EventType.ROOM_MESSAGE, [])
             handler_tuple = (self.prefixless_dm.handle, False)

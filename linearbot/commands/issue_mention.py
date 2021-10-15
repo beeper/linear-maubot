@@ -1,21 +1,18 @@
 import asyncio
-import json
 import re
 from datetime import datetime, timedelta
 
-import attr
 from mautrix.types.event.message import Format, MessageType, TextMessageEventContent
 from linearbot.util.template import TemplateManager
-from typing import Dict, Iterable, List, Optional, NamedTuple, Tuple
-from uuid import UUID, uuid4
+from typing import Dict, Iterable, Optional, Tuple
 
-from mautrix.types import EventType, EventID, RoomID, ReactionEvent, RelationType
+from mautrix.types import EventType, EventID
 from maubot.handlers import event
 from maubot import MessageEvent
 
 from ..api import LinearClient
-from ..api.types import IssueSummary, LinearEventType
-from .base import Command, with_client
+from ..api.types import IssueSummary
+from .base import Command
 
 
 class CommandIssueMention(Command):
@@ -77,12 +74,32 @@ class CommandIssueMention(Command):
         except Exception:
             return None
 
+    _event_reply_working_set_lock = asyncio.Lock()
+
     @event.on(EventType.ROOM_MESSAGE)
-    @with_client(error_message=False)
-    async def on_issue_mention(self, evt: MessageEvent, client: LinearClient) -> None:
+    async def on_issue_mention(self, evt: MessageEvent) -> None:
         if evt.sender == self.bot.client.mxid:
             return
 
+        client = self.bot.clients.get_by_mxid(evt.sender)
+        if not client:
+            on_behalf_of = evt.content.get("space.nevarro.standupbot.on_behalf_of")
+            if not on_behalf_of:
+                return
+            if evt.sender not in self.bot.on_behalf_of_whitelist.get(evt.room_id, []):
+                return
+
+            self.bot.log.info(f"{evt.sender} sent message on behalf of {on_behalf_of}")
+            client = self.bot.clients.get_by_mxid(evt.sender)
+            if not client:
+                return
+
+        async with self._event_reply_working_set_lock:
+            self.bot.log.silly(f"_event_reply_working_set_lock acquired for {evt.event_id}")
+            await self.respond_with_issue_details(evt, client)
+            self.bot.log.silly(f"_event_reply_working_set_lock released for {evt.event_id}")
+
+    async def respond_with_issue_details(self, evt: MessageEvent, client: LinearClient):
         issue_details_futures = await asyncio.gather(
             *(
                 self.get_issue_details(client, issue_identifier)
