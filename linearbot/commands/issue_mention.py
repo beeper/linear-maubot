@@ -86,7 +86,7 @@ class CommandIssueMention(Command):
         if not on_behalf_of:
             return None
         self.bot.log.info(f"{evt.sender} sent message on behalf of {on_behalf_of}")
-        return self.bot.clients.get_by_mxid(evt.sender)
+        return self.bot.clients.get_by_mxid(on_behalf_of)
 
     @event.on(EventType.ROOM_MESSAGE)
     async def on_issue_mention(self, evt: MessageEvent) -> None:
