@@ -125,12 +125,10 @@ class CommandIssueMention(Command):
                 reply_event = self._reply_event_ids.get(edits)
                 if reply_event:
                     content.set_edit(reply_event)
-                else:
-                    content.set_reply(edits)
                 await evt.respond(content)
                 return
 
-            reply_event_id = await evt.reply(issue_summaries, allow_html=True)
+            reply_event_id = await evt.respond(issue_summaries, allow_html=True)
             self._reply_event_ids[evt.event_id] = reply_event_id
         else:
             edits = evt.content.get_edit()
