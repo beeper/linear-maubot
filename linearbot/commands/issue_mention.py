@@ -82,7 +82,7 @@ class CommandIssueMention(Command):
     def _get_on_behalf_of(self, evt: MessageEvent) -> Optional[LinearClient]:
         if evt.sender not in self.bot.on_behalf_of_whitelist.get(evt.room_id, []):
             return None
-        on_behalf_of = evt.content.get("space.nevarro.standupbot.on_behalf_of")
+        on_behalf_of = evt.content.get("space.nevarro.msc3464.on_behalf_of")
         if not on_behalf_of:
             return None
         self.bot.log.info(f"{evt.sender} sent message on behalf of {on_behalf_of}")
