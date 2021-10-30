@@ -112,6 +112,7 @@ class CommandIssueMention(Command):
             )
         )
         issue_details = [d for d in issue_details_futures if d]
+        issue_details.sort(key=lambda i: i.identifier)
         if issue_details:
             issue_summaries = await self.format_issue_summaries(issue_details)
             content = TextMessageEventContent(
