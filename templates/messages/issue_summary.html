@@ -1,5 +1,5 @@
 {% if description %}<details><summary>{% endif %}
-  <b><a href="{{ url }}">{{ identifier }}</a>: {{ title }}</b><br />
+  <b><a href="{{ url }}">{{ identifier }}</a>: {{ title|e }}</b><br />
   {{ details | reject("equalto", "") | join(' | ') }}
 {% if description %}</summary>
   {{ description | markdown }}
