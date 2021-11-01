@@ -2,7 +2,7 @@
 {% set rageshake = data.title.startswith("Rageshake from ") %}
 {% if rageshake %}<details><summary>{% endif %}
 <a href="{{ creator.url }}">{{ creator.display_name }}</a> created
-issue <a href="{{ url }}">{{ data.team.key }}-{{ data.number }}</a>: {{ data.title }}
+issue <a href="{{ url }}">{{ data.team.key }}-{{ data.number }}</a>: {{ data.title|e }}
 {% if rageshake %}</summary>{% endif %}
 {% if data.description %}
     <blockquote>

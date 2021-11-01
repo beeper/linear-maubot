@@ -1,7 +1,7 @@
 {% set user = cli.get_user(data.user_id) %}
 {% set issue = cli.get_issue(data.issue_id) %}
 <a href="{{ user.url }}">{{ user.display_name }}</a> commented on
-issue <a href="{{ issue.url }}">{{ issue.identifier }}</a>: {{ issue.title }}
+issue <a href="{{ issue.url }}">{{ issue.identifier }}</a>: {{ issue.title|e }}
 <blockquote>
     {{ data.body | markdown }}
 </blockquote>
