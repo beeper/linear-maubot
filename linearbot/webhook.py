@@ -92,6 +92,7 @@ class LinearWebhook:
             "action": evt.action.value,
             "data": await evt.data.get_meta(client=self.bot.linear_bot),
         }
+        content["com.beeper.linkpreviews"] = []
         if evt.url:
             content.external_url = evt.url
         query = {"ts": int(evt.created_at.timestamp() * 1000)}
