@@ -85,9 +85,8 @@ class LinearWebhook:
         html = await tpl.render_async(**args)
         if not html or aborted:
             return
-        html = spaces.sub(space, html.strip())
         content = TextMessageEventContent(msgtype=MessageType.NOTICE, format=Format.HTML,
-                                          formatted_body=html, body=parse_html(html))
+                                          formatted_body=html, body=parse_html(html.strip()))
         content["com.beeper.linear.webhook"] = {
             "type": evt.type.value,
             "action": evt.action.value,
