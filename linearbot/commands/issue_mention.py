@@ -113,28 +113,15 @@ class CommandIssueMention(Command):
         )
         issue_details = [d for d in issue_details_futures if d]
         issue_details.sort(key=lambda i: i.identifier)
+        edits = evt.content.get_edit()
+        original_event_id = self._reply_event_ids.get(edits) if edits else None
         if issue_details:
             issue_summaries = await self.format_issue_summaries(issue_details)
-            content = TextMessageEventContent(
-                msgtype=MessageType.NOTICE,
-                format=Format.HTML,
-                formatted_body=issue_summaries,
-            )
-            # Detect edits
-            edits = evt.content.get_edit()
-            if edits:
-                reply_event = self._reply_event_ids.get(edits)
-                if reply_event:
-                    content.set_edit(reply_event)
-                await evt.respond(content)
-                return
-
-            reply_event_id = await evt.respond(issue_summaries, allow_html=True)
-            self._reply_event_ids[evt.event_id] = reply_event_id
-        else:
-            edits = evt.content.get_edit()
-            if edits:
-                reply_event = self._reply_event_ids.get(edits)
-                if reply_event:
-                    await evt.client.redact(evt.room_id, reply_event)
-                    del self._reply_event_ids[edits]
+            if original_event_id:
+                await evt.respond(issue_summaries, edits=original_event_id, allow_html=True)
+            else:
+                reply_event_id = await evt.respond(issue_summaries, allow_html=True)
+                self._reply_event_ids[evt.event_id] = reply_event_id
+        elif original_event_id:
+            await evt.client.redact(evt.room_id, original_event_id)
+            del self._reply_event_ids[edits]
