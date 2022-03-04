@@ -86,7 +86,7 @@ class LinearWebhook:
         if not html or aborted:
             return
         content = TextMessageEventContent(msgtype=MessageType.NOTICE, format=Format.HTML,
-                                          formatted_body=html, body=parse_html(html.strip()))
+                                          formatted_body=html, body=await parse_html(html.strip()))
         content["com.beeper.linear.webhook"] = {
             "type": evt.type.value,
             "action": evt.action.value,
