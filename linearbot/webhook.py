@@ -87,7 +87,7 @@ class LinearWebhook:
             return
         content = TextMessageEventContent(msgtype=MessageType.NOTICE, format=Format.HTML,
                                           formatted_body=html, body=await parse_html(html.strip()))
-        content["m.mentions"] = []
+        content["m.mentions"] = {}
         content["com.beeper.linear.webhook"] = {
             "type": evt.type.value,
             "action": evt.action.value,
