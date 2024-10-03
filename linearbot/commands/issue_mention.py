@@ -35,12 +35,20 @@ class CommandIssueMention(Command):
         template = self.templates["issue_summary"]
 
         formatted_issues = []
+        description_max_length = 50000
+        descriptions_too_long = sum(len(issue.description or "") for issue in issues) > description_max_length
+        if descriptions_too_long:
+            description_max_length /= len(issues)
+
         for issue in issues:
+            description = issue.description or ""
+            if len(description) > description_max_length:
+                description = description[:description_max_length] + "\n\n[long description cut off]"
             args = {
                 "identifier": issue.identifier,
                 "title": issue.title,
                 "url": issue.url,
-                "description": issue.description or "",
+                "description": description,
                 "details": [
                     (issue.priority_label or "").replace("No priority", ""),
                     (
