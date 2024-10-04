@@ -72,6 +72,15 @@ get_issue_details = """query GetIssueDetails($issueID: String!) {
 }"""
 
 # language=graphql
+get_issue_labels = """query GetIssueLabels($issueID: String!) {
+    issue(id: $issueID) {
+        id
+        title
+        labelIds
+    }
+}"""
+
+# language=graphql
 create_issue = """mutation CreateIssue($input: IssueCreateInput!) {
     issueCreate(input: $input) {
         success

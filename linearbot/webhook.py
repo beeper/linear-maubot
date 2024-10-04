@@ -1,4 +1,4 @@
-from typing import Set, List, TYPE_CHECKING
+from typing import Set, List, Optional, TYPE_CHECKING
 from uuid import UUID
 import asyncio
 import json
@@ -21,6 +21,14 @@ if TYPE_CHECKING:
 spaces = re.compile(" +")
 space = " "
 
+release_label_ids = set([
+    UUID('323bed12-5ebb-45d8-b568-7bd17be0c5d1'),
+    UUID('6bc970b5-ef2d-4848-8be8-e46717dc1e57'),
+    UUID('8994a725-7a54-43a6-943d-3eed14fbaef6'),
+    UUID('9df0b86a-47c1-442c-a8a3-44a15549b2b3'),
+    UUID('ea917b08-41ce-4aad-9360-98e22db96df6')
+])
+
 
 class LinearWebhook:
     bot: 'LinearBot'
@@ -30,6 +38,7 @@ class LinearWebhook:
     handled_webhooks: Set[UUID]
     ignore_uuids: Set[UUID]
     messages: TemplateManager
+
     # templates: TemplateManager
 
     def __init__(self, bot: 'LinearBot') -> None:
@@ -51,7 +60,8 @@ class LinearWebhook:
         if self.task_list:
             await asyncio.wait(self.task_list, timeout=1)
 
-    async def handle_webhook(self, room_id: RoomID, evt: LinearEvent) -> None:
+    async def handle_webhook(self, room_id: Optional[RoomID], release_room_id: Optional[RoomID],
+                             evt: LinearEvent) -> None:
         if evt.data.id in self.ignore_uuids:
             self.log.debug(f"Dropping webhook for {evt.type} {evt.data.id}"
                            " that was marked to be ignored")
@@ -98,12 +108,22 @@ class LinearWebhook:
             content.external_url = evt.url
         query = {"ts": int(evt.created_at.timestamp() * 1000)}
 
-        await self.bot.client.send_message(room_id, content, query_params=query)
+        if room_id is not None:
+            await self.bot.client.send_message(room_id, content, query_params=query)
 
-    async def _try_handle_webhook(self, delivery_id: UUID, room_id: RoomID, evt: LinearEvent
+        # Only post in the release room if the issue has one of the release labels
+        if release_room_id is not None:
+            issue_id = getattr(evt.data, 'issue_id', None)
+            if issue_id is not None:
+                label_ids = await self.bot.linear_bot.get_issue_labels(issue_id)
+                if set(label_ids) & release_label_ids:
+                    await self.bot.client.send_message(release_room_id, content, query_params=query)
+
+    async def _try_handle_webhook(self, delivery_id: UUID, room_id: Optional[RoomID], release_room_id: Optional[RoomID],
+                                  evt: LinearEvent
                                   ) -> None:
         try:
-            await self.handle_webhook(room_id, evt)
+            await self.handle_webhook(room_id, release_room_id, evt)
         except Exception:
             self.log.exception(f"Error handling webhook {delivery_id}")
         finally:
@@ -123,12 +143,23 @@ class LinearWebhook:
         try:
             room_id = RoomID(request.url.query["room_id"])
         except KeyError:
-            return Response(status=400, text="400: Bad Request\n"
-                                             "Missing `room_id` query parameter\n")
-        if room_id not in self.joined_rooms:
-            return Response(text="403: Forbidden\nThe bot is not in the room. "
+            room_id = None
+
+        if room_id is not None and room_id not in self.joined_rooms:
+            return Response(text=f"403: Forbidden\nThe bot is not in the room {room_id}. "
                                  f"Please invite {self.bot.client.mxid} to the room.\n",
                             status=403)
+
+        try:
+            release_room_id = RoomID(request.url.query["release_room_id"])
+        except KeyError:
+            release_room_id = None
+
+        if release_room_id is not None and release_room_id not in self.joined_rooms:
+            return Response(text=f"403: Forbidden\nThe bot is not in the room {release_room_id}. "
+                                 f"Please invite {self.bot.client.mxid} to the room.\n",
+                            status=403)
+
         try:
             delivery_id = UUID(request.headers["Linear-Delivery"])
         except (KeyError, ValueError):
@@ -161,7 +192,7 @@ class LinearWebhook:
             self.log.debug("Recognized data in %s: %s", delivery_id, evt)
         except AttributeError:
             self.log.trace("Received event %s: %s", delivery_id, evt)
-        task = asyncio.create_task(self._try_handle_webhook(delivery_id, room_id, evt))
+        task = asyncio.create_task(self._try_handle_webhook(delivery_id, room_id, release_room_id, evt))
         self.task_list.append(task)
         return Response(status=202, text="202: Accepted\nWebhook processing started.\n")
 

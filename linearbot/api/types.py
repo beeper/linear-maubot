@@ -178,6 +178,10 @@ class IssueSummary(IssueMeta):
     project: Optional[MinimalProject] = None
     state: Optional[IssueState] = None
 
+@dataclass
+class IssueLabels(MinimalIssue):
+    label_ids: Optional[List[UUID]] = field(json="labelIds", default=None)
+
 @dataclass(kw_only=True)
 class Issue(MinimalIssue, SerializableAttrs, LinearEventData):
     number: int

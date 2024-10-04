@@ -4,8 +4,8 @@ import json
 
 from yarl import URL
 
-from .types import Issue, User, IssueMeta, IssueSummary, IssueCreateResponse, Label
-from .queries import (get_user_details, get_user, get_issue, get_issue_details, get_labels,
+from .types import Issue, User, IssueMeta, IssueSummary, IssueLabels, IssueCreateResponse, Label
+from .queries import (get_user_details, get_user, get_issue, get_issue_details, get_issue_labels, get_labels,
                       create_issue, create_comment, create_reaction, create_label, update_label)
 
 if TYPE_CHECKING:
@@ -158,6 +158,11 @@ class LinearClient:
         issue = IssueSummary.deserialize(resp["issue"])
         return issue
 
+    async def get_issue_labels(self, issue_id: UUID) -> List[UUID]:
+        resp = await self.request(get_issue_labels, variables={"issueID": str(issue_id)})
+        issue = IssueLabels.deserialize(resp["issue"])
+        return issue.label_ids
+
     async def get_all_labels(self) -> Dict[UUID, Dict[str, Label]]:
         teams = {}
         has_next_page = True
@@ -166,7 +171,11 @@ class LinearClient:
             resp = await self.request(get_labels, variables={"cursor": cursor})
             for raw_label in resp["issueLabels"]["nodes"]:
                 label = Label.deserialize(raw_label)
-                teams.setdefault(label.team.id, {})[label.name] = label
+                team_id = getattr(label.team, 'id', None)
+                if team_id is not None:
+                    teams.setdefault(team_id, {})[label.name] = label
+                else:
+                    self.log.warning(f"Label {label.name} has no team ID")
             has_next_page = resp["issueLabels"]["pageInfo"]["hasNextPage"]
             cursor = resp["issueLabels"]["pageInfo"]["endCursor"]
         return teams
