@@ -21,15 +21,6 @@ if TYPE_CHECKING:
 spaces = re.compile(" +")
 space = " "
 
-release_label_ids = set([
-    UUID('323bed12-5ebb-45d8-b568-7bd17be0c5d1'),
-    UUID('6bc970b5-ef2d-4848-8be8-e46717dc1e57'),
-    UUID('8994a725-7a54-43a6-943d-3eed14fbaef6'),
-    UUID('9df0b86a-47c1-442c-a8a3-44a15549b2b3'),
-    UUID('ea917b08-41ce-4aad-9360-98e22db96df6')
-])
-
-
 class LinearWebhook:
     bot: 'LinearBot'
     secret: str
@@ -38,6 +29,7 @@ class LinearWebhook:
     handled_webhooks: Set[UUID]
     ignore_uuids: Set[UUID]
     messages: TemplateManager
+    release_label_ids: Set[UUID]
 
     # templates: TemplateManager
 
@@ -48,6 +40,7 @@ class LinearWebhook:
         self.joined_rooms = set()
         self.handled_webhooks = set()
         self.ignore_uuids = set()
+        self.release_label_ids = set()
 
         self.messages = TemplateManager(self.bot.loader, "templates/messages")
         # self.templates = TemplateManager(self.bot.loader, "templates/mixins")
@@ -116,7 +109,7 @@ class LinearWebhook:
             issue_id = getattr(evt.data, 'issue_id', None)
             if issue_id is not None:
                 label_ids = await self.bot.linear_bot.get_issue_labels(issue_id)
-                if set(label_ids) & release_label_ids:
+                if set(label_ids) & self.release_label_ids:
                     await self.bot.client.send_message(release_room_id, content, query_params=query)
 
     async def _try_handle_webhook(self, delivery_id: UUID, room_id: Optional[RoomID], release_room_id: Optional[RoomID],

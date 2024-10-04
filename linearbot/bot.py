@@ -33,6 +33,7 @@ class Config(BaseProxyConfig):
         helper.copy("linear.client_id")
         helper.copy("linear.client_secret")
         helper.copy("linear.allowed_organizations")
+        helper.copy("linear.release_label_ids")
 
         helper.copy("gitlab.url")
         helper.copy("gitlab.token")
@@ -98,6 +99,7 @@ class LinearBot(Plugin):
     def on_external_config_update(self) -> None:
         self.config.load_and_update()
         self.linear_webhook.secret = self.config["linear.webhook_secret"]
+        self.linear_webhook.release_label_ids = {UUID(id) for id in self.config["linear.release_label_ids"]}
         self.linear_bot.authorization = self.config["linear.token"]
         self.oauth_client_id = self.config["linear.client_id"]
         self.oauth_client_secret = self.config["linear.client_secret"]
