@@ -11,6 +11,8 @@ linear:
     # IDs of Linear organizations that are allowed to use the bot.
     # Empty list disables the whitelist.
     allowed_organizations: []
+    # Label IDs for issues that are releases and should be shared to the release room
+    release_label_ids: []
 
 # Settings for reading data from GitLab for migration purposes
 gitlab:
