@@ -35,10 +35,10 @@ class CommandIssueMention(Command):
         template = self.templates["issue_summary"]
 
         formatted_issues = []
-        description_max_length = 50000
+        description_max_length = 30000
         descriptions_too_long = sum(len(issue.description or "") for issue in issues) > description_max_length
         if descriptions_too_long:
-            description_max_length /= len(issues)
+            description_max_length = int(description_max_length / len(issues))
 
         for issue in issues:
             description = issue.description or ""
