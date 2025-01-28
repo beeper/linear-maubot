@@ -16,6 +16,7 @@ from .webhook import LinearWebhook
 from .commands import LinearCommands
 from .client_manager import ClientManager
 from .label_manager import LabelManager
+from .avatar_manager import AvatarManager
 from .util.gitlab import GitLabMigrator
 from .util.prefixless_dm import DMCommandHandler
 
@@ -54,6 +55,7 @@ class LinearBot(Plugin):
     linear_webhook: LinearWebhook
     clients: ClientManager
     labels: LabelManager
+    avatars: AvatarManager
     linear_bot: LinearClient
     commands: LinearCommands
     migrator: GitLabMigrator
@@ -67,6 +69,7 @@ class LinearBot(Plugin):
         self.commands = LinearCommands(self)
         self.clients = ClientManager(self, db_metadata)
         self.labels = LabelManager(self, db_metadata)
+        self.avatars = AvatarManager(self, db_metadata)
         self.migrator = GitLabMigrator(self)
         self.prefixless_dm = DMCommandHandler(self.commands)
 
@@ -74,6 +77,7 @@ class LinearBot(Plugin):
         db_metadata.create_all(self.database)
         self.clients.load_db()
         self.labels.load_db()
+        self.avatars.load_db()
 
         self.register_handler_class(self.linear_webhook)
         self.register_handler_class(self.commands)

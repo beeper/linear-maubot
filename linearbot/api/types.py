@@ -251,12 +251,14 @@ class Reaction(SerializableAttrs, LinearEventData):
 
 class AttachmentSourceType(SerializableEnum):
     API = "api"
+    GITHUB = "github"
 
 
 @dataclass(kw_only=True)
 class AttachmentSource(SerializableAttrs):
     type: AttachmentSourceType
-    image_url: str = field(json="imageUrl")
+    image_url: Optional[str] = field(json="imageUrl", default=None)
+    pull_request_id: Optional[str] = field(json="pullRequestId", default=None)
 
 
 @dataclass(kw_only=True)
@@ -277,6 +279,14 @@ class UpdatedFrom(SerializableAttrs):
     updated_at: LinearDateTime = field(json="updatedAt")
 
 
+@dataclass
+class LinearActor(SerializableAttrs):
+    id: UUID
+    type: str = "user" # or integration
+    email: Optional[str] = None
+    name: Optional[str] = None
+    avatar_url: str = field(json="avatarUrl", default="")
+
 LinearEventContent = Union[Issue, Comment, Reaction, LabelEvent, Attachment]
 type_to_class = {
     LinearEventType.ISSUE: Issue,
@@ -294,7 +304,9 @@ class LinearEvent(SerializableAttrs):
     created_at: LinearDateTime = field(json="createdAt")
     type: LinearEventType
     data: LinearEventContent
+    actor: Optional[LinearActor] = None
     url: Optional[str] = None
+    organization_id: Optional[UUID] = field(json="organizationId", default=None)
 
     @classmethod
     def deserialize(cls, data: JSON) -> 'LinearEvent':

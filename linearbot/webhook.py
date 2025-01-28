@@ -96,6 +96,18 @@ class LinearWebhook:
             "action": evt.action.value,
             "data": await evt.data.get_meta(client=self.bot.linear_bot),
         }
+        if evt.actor and evt.actor.name:
+            mxc = ""
+            if evt.actor.avatar_url:
+                try:
+                    mxc = await self.bot.avatars.get_mxc(evt.actor.avatar_url)
+                except Exception:
+                    self.log.warning("Failed to get avatar URL", exc_info=True)
+            content["com.beeper.per_message_profile"] = {
+                "id": str(evt.actor.id),
+                "displayname": evt.actor.name,
+                "avatar_url": mxc,
+            }
         content["com.beeper.linkpreviews"] = []
         if evt.url:
             content.external_url = evt.url
