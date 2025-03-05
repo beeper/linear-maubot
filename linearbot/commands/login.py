@@ -56,6 +56,7 @@ html_content = """
 """
 
 ok_react = "✅"
+ok_react_vs16 = "✅️"
 success_response = ("Successfully authenticated as {name} ({email}).<br>"
                     "Please return to your Matrix client and follow the instructions "
                     "from the bot to complete the login.")
@@ -187,7 +188,7 @@ class CommandLogin(Command):
     @event.on(EventType.REACTION)
     async def _handle_login_reaction(self, evt: ReactionEvent) -> None:
         if (evt.content.relates_to.rel_type != RelationType.ANNOTATION
-                or evt.content.relates_to.key != ok_react):
+                or evt.content.relates_to.key not in (ok_react, ok_react_vs16)):
             return
         try:
             login = self._logins_waiting_for_confirmation.pop((evt.content.relates_to.event_id,
