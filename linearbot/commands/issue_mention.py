@@ -29,7 +29,7 @@ class CommandIssueMention(Command):
         self._reply_event_ids = {}
         self._event_reply_working_set_lock = asyncio.Lock()
 
-    issue_mention_re = re.compile(r"[A-Z]{1,5}-\d+")
+    issue_mention_re = re.compile(r"[A-Z]{1,7}-\d+")
 
     async def format_issue_summaries(self, issues: Iterable[IssueSummary]) -> str:
         template = self.templates["issue_summary"]
