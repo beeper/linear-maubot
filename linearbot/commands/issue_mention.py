@@ -98,7 +98,11 @@ class CommandIssueMention(Command):
 
     @event.on(EventType.ROOM_MESSAGE)
     async def on_issue_mention(self, evt: MessageEvent) -> None:
-        if evt.sender == self.bot.client.mxid or evt.content.msgtype != MessageType.TEXT:
+        if (
+            evt.sender == self.bot.client.mxid
+            or evt.content.msgtype not in (MessageType.TEXT, MessageType.IMAGE)
+            or not evt.content.body
+        ):
             return
 
         client = self.bot.clients.get_by_mxid(evt.sender) or self._get_on_behalf_of(evt)
