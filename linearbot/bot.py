@@ -6,6 +6,7 @@ import json
 from yarl import URL
 from sqlalchemy import MetaData
 
+from mautrix.client.syncer import EventHandlerProps
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from mautrix.types import EventType
 
@@ -117,10 +118,8 @@ class LinearBot(Plugin):
         self.migrator.user_mapping = self.config["user_mapping"]
         self.on_behalf_of_whitelist = self.config["on_behalf_of_whitelist"]
         if self.config["prefixless_dm"]:
-            handlers = self.client.event_handlers.setdefault(EventType.ROOM_MESSAGE, [])
-            handler_tuple = (self.prefixless_dm.handle, False)
-            if handler_tuple not in handlers:
-                handlers.append(handler_tuple)
+            handlers = self.client.event_handlers.setdefault(EventType.ROOM_MESSAGE, {})
+            handlers[self.prefixless_dm.handle] = EventHandlerProps(wait_sync=False, sync_stream=None)
         else:
             try:
                 self.client.remove_event_handler(EventType.ROOM_MESSAGE, self.prefixless_dm.handle)
