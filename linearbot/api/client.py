@@ -1,8 +1,10 @@
 from typing import Any, Optional, Dict, List, ClassVar, TYPE_CHECKING
 from uuid import UUID
 import json
+import time
 
 from yarl import URL
+from mautrix.types import UserID
 
 from .types import Issue, User, IssueMeta, IssueSummary, IssueLabels, IssueCreateResponse, Label
 from .queries import (get_user_details, get_user, get_issue, get_issue_details, get_issue_labels, get_labels,
@@ -46,19 +48,36 @@ class LinearClient:
     emoji: ClassVar[Dict[str, str]] = {}
 
     bot: 'LinearBot'
+    user_id: UserID
     own_id: Optional[UUID]
     _cached_self: Optional[User]
     authorization: Optional[str]
+    authorization_expiry: Optional[int]
+    refresh_token: Optional[str]
+    personal_token: bool
     graphql_url = URL("https://api.linear.app/graphql")
     oauth_token_url = URL("https://api.linear.app/oauth/token")
     oauth_revoke_url = URL("https://api.linear.app/oauth/revoke")
+    oauth_migrate_token_url = URL("https://api.linear.app/oauth/migrate_old_token")
 
     _user_cache: Dict[UUID, User]
     _issue_cache: Dict[UUID, IssueMeta]
 
-    def __init__(self, bot: 'LinearBot', own_id: Optional[UUID] = None,
-                 authorization: Optional[str] = None) -> None:
-        self.authorization = authorization
+    def __init__(self, bot: 'LinearBot', user_id: UserID, own_id: Optional[UUID] = None,
+                 stored_token: Optional[str] = None) -> None:
+        self.user_id = user_id
+        self.refresh_token = None
+        self.authorization = None
+        self.authorization_expiry = None
+        self.personal_token = False
+        if stored_token:
+            if stored_token.startswith("lin_api"):
+                self.authorization = stored_token
+                self.personal_token = True
+            elif stored_token.startswith("Bearer "):
+                self.authorization = stored_token
+            else:
+                self.refresh_token = stored_token
         self.own_id = own_id
         self.bot = bot
         self.log = bot.log.getChild("client")
@@ -77,11 +96,48 @@ class LinearClient:
         })
         resp_body = await resp.json()
         self.log.trace("Login response: %s %s", resp.status, resp_body)
+        resp.raise_for_status()
+        if "access_token" in resp_body:
+            self.authorization = f"{resp_body['token_type']} {resp_body['access_token']}"
+            self.authorization_expiry = time.monotonic() + resp_body["expires_in"]
+        self.refresh_token = resp_body["refresh_token"]
+
+    async def refresh(self) -> None:
+        resp = await self.bot.http.post(self.oauth_token_url, data={
+            "refresh_token": self.refresh_token,
+            "client_id": self.bot.oauth_client_id,
+            "client_secret": self.bot.oauth_client_secret,
+            "grant_type": "refresh_token",
+        })
+        resp_body = await resp.json()
+        self.log.trace("Refresh response: %s %s", resp.status, resp_body)
+        resp.raise_for_status()
         self.authorization = f"{resp_body['token_type']} {resp_body['access_token']}"
+        self.authorization_expiry = time.monotonic() + resp_body.get("expires_in")
+        self.refresh_token = resp_body["refresh_token"]
+        self.bot.clients.put(self.user_id, self)
+
+    async def migrate_token(self) -> None:
+        resp = await self.bot.http.post(self.oauth_migrate_token_url, data={
+            "access_token": self.authorization.removeprefix("Bearer "),
+            "client_id": self.bot.oauth_client_id,
+            "client_secret": self.bot.oauth_client_secret,
+        })
+        resp_body = await resp.json()
+        self.log.trace("Migrate token response: %s %s", resp.status, resp_body)
+        resp.raise_for_status()
+        self.authorization = f"{resp_body['token_type']} {resp_body['access_token']}"
+        self.authorization_expiry = time.monotonic() + resp_body.get("expires_in")
+        self.refresh_token = resp_body["refresh_token"]
+        self.bot.clients.put(self.user_id, self)
 
     async def logout(self) -> None:
-        resp = await self.bot.http.post(self.oauth_revoke_url,
-                                        headers={"Authorization": self.authorization})
+        if not self.refresh_token and not self.authorization:
+            return
+        resp = await self.bot.http.post(self.oauth_revoke_url, data={
+            "token": self.refresh_token or self.authorization.removeprefix("Bearer "),
+            "token_type_hint": "refresh_token" if self.refresh_token else "access_token",
+        })
         self.log.trace("Logout response: %s %s", resp.status, await resp.json())
         if resp.status != 200:
             try:
@@ -100,8 +156,18 @@ class LinearClient:
         except (KeyError, IndexError):
             return False
 
+    @property
+    def needs_refresh(self) -> bool:
+        return (self.refresh_token is not None and
+                (self.authorization is None or (time.monotonic() + 60) > self.authorization_expiry))
+
     async def request(self, query: str, variables: Optional[Dict[str, Any]] = None,
                       operation_name: Optional[str] = None, retry_count: int = 0) -> Any:
+        if not self.personal_token:
+            if self.needs_refresh:
+                await self.refresh()
+            elif self.refresh_token is None:
+                await self.migrate_token()
         data = {
             "operationName": operation_name,
             "query": query,

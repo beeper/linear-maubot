@@ -30,20 +30,23 @@ class ClientManager:
         self._clients_by_mxid = {}
 
     def load_db(self) -> None:
-        self._clients_by_mxid = {user_id: LinearClient(self.bot, UUID(linear_uuid), authorization)
-                                 for user_id, linear_uuid, authorization
+        self._clients_by_mxid = {user_id: LinearClient(self.bot, user_id, UUID(linear_uuid), stored_token)
+                                 for user_id, linear_uuid, stored_token
                                  in self._db.execute(self._table.select())}
         self._clients_by_uuid = {client.own_id: client
                                  for client in self._clients_by_mxid.values()}
 
     def put(self, user_id: UserID, client: LinearClient) -> None:
+        # For new-style clients, store the refresh token. For legacy clients (no refresh token),
+        # store the long-lived access token so it continues to work.
+        stored_token = client.refresh_token or client.authorization
         with self._db.begin() as conn:
             self._clients_by_mxid[user_id] = client
             self._clients_by_uuid[client.own_id] = client
             conn.execute(self._table.delete().where(self._table.c.user_id == user_id))
             conn.execute(self._table.insert().values(user_id=user_id,
                                                      linear_uuid=str(client.own_id),
-                                                     authorization=client.authorization))
+                                                     authorization=stored_token))
 
     def get_by_mxid(self, user_id: UserID) -> Optional[LinearClient]:
         return self._clients_by_mxid.get(user_id)

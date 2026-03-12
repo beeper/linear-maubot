@@ -65,7 +65,7 @@ class LinearBot(Plugin):
     async def start(self):
         db_metadata = MetaData()
 
-        self.linear_bot = LinearClient(self)
+        self.linear_bot = LinearClient(self, user_id=self.client.mxid)
         self.linear_webhook = await LinearWebhook(self).start()
         self.commands = LinearCommands(self)
         self.clients = ClientManager(self, db_metadata)

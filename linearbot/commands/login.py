@@ -138,7 +138,7 @@ class CommandLogin(Command):
                             f"Error from server:\n\n> {e}")
 
     async def _claim_oauth_token(self, login: LoginInProgress, code: str) -> None:
-        login.client = LinearClient(self.bot)
+        login.client = LinearClient(self.bot, login.user_id)
         await login.client.login(code, self._oauth_redirect_url)
         login.user = await login.client.get_self()
 
