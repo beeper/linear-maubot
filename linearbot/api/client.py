@@ -1,5 +1,6 @@
 from typing import Any, Optional, Dict, List, ClassVar, TYPE_CHECKING
 from uuid import UUID
+import asyncio
 import json
 import time
 
@@ -59,6 +60,7 @@ class LinearClient:
     oauth_token_url = URL("https://api.linear.app/oauth/token")
     oauth_revoke_url = URL("https://api.linear.app/oauth/revoke")
     oauth_migrate_token_url = URL("https://api.linear.app/oauth/migrate_old_token")
+    refresh_lock: asyncio.Lock
 
     _user_cache: Dict[UUID, User]
     _issue_cache: Dict[UUID, IssueMeta]
@@ -82,6 +84,7 @@ class LinearClient:
         self.bot = bot
         self.log = bot.log.getChild("client")
         self._cached_self = None
+        self.refresh_lock = asyncio.Lock()
 
         self._user_cache = {}
         self._issue_cache = {}
@@ -164,10 +167,11 @@ class LinearClient:
     async def request(self, query: str, variables: Optional[Dict[str, Any]] = None,
                       operation_name: Optional[str] = None, retry_count: int = 0) -> Any:
         if not self.personal_token:
-            if self.needs_refresh:
-                await self.refresh()
-            elif self.refresh_token is None:
-                await self.migrate_token()
+            async with self.refresh_lock:
+                if self.needs_refresh:
+                    await self.refresh()
+                elif self.refresh_token is None:
+                    await self.migrate_token()
         data = {
             "operationName": operation_name,
             "query": query,
