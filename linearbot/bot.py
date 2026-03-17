@@ -106,6 +106,7 @@ class LinearBot(Plugin):
         self.linear_webhook.secret = self.config["linear.webhook_secret"]
         self.linear_webhook.release_label_ids = {UUID(id) for id in self.config["linear.release_label_ids"]}
         self.linear_bot.authorization = self.config["linear.token"]
+        self.linear_bot.personal_token = True
         self.oauth_client_id = self.config["linear.client_id"]
         self.oauth_client_secret = self.config["linear.client_secret"]
         self._allowed_organizations = {UUID(org_id) for org_id
