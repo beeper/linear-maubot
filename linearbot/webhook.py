@@ -76,6 +76,9 @@ class LinearWebhook:
             nonlocal aborted
             aborted = True
 
+        if len(evt.data.get("description", "")) > 30000:
+            evt.data.description = evt.data.description[:30000] + "\n\n[long description cut off]"
+
         args = {
             **attr.asdict(evt, recurse=False),
             **LINEAR_ENUMS,
@@ -83,13 +86,21 @@ class LinearWebhook:
             "util": TemplateUtil,
             "cli": self.bot.linear_bot,
         }
+
         # args["templates"] = self.templates.proxy(args)
 
         html = await tpl.render_async(**args)
         if not html or aborted:
             return
-        content = TextMessageEventContent(msgtype=MessageType.NOTICE, format=Format.HTML,
-                                          formatted_body=html, body=await parse_html(html.strip()))
+        content = TextMessageEventContent(
+            msgtype=MessageType.NOTICE,
+            format=Format.HTML,
+            formatted_body=html,
+            body=await parse_html(html.strip()),
+        )
+        if len(content.formatted_body) + len(content.body) > 50000:
+            content.body = content.body[:200]
+
         content["m.mentions"] = {}
         content["com.beeper.linear.webhook"] = {
             "type": evt.type.value,
